@@ -1,13 +1,107 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Void Colony — Colonise the Void</title>
+    <meta name="description" content="Void Colony — jeu de base building sci-fi en vue isométrique. Construis ta colonie sur un astéroïde perdu dans le vide spatial." />
   </head>
   <body>
-    <div id="app"></div>
+    <!-- Starfield background -->
+    <canvas id="starfield"></canvas>
+
+    <!-- Loading screen -->
+    <div id="loading-screen">
+      <div class="loading-logo">VOID COLONY</div>
+      <div class="loading-bar-container"><div class="loading-bar"></div></div>
+      <div class="loading-text">Initialisation du système...</div>
+    </div>
+
+    <!-- Auth screen (login / register) -->
+    <div id="auth-screen" class="hidden">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <h1>VOID COLONY</h1>
+          <p>Colonise the Void</p>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Connexion</button>
+          <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Inscription</button>
+        </div>
+
+        <!-- Login form -->
+        <form id="form-login" class="auth-form">
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="commandant@void.space" required />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Mot de passe</label>
+            <input type="password" id="login-password" placeholder="••••••••" required />
+          </div>
+          <div id="login-message" class="auth-message"></div>
+          <button type="submit" class="btn-primary" id="btn-login">Se connecter</button>
+        </form>
+
+        <!-- Register form -->
+        <form id="form-register" class="auth-form hidden">
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" placeholder="commandant@void.space" required />
+          </div>
+          <div class="form-group">
+            <label for="register-password">Mot de passe</label>
+            <input type="password" id="register-password" placeholder="Min. 8 caractères" required minlength="8" />
+          </div>
+          <div id="register-message" class="auth-message"></div>
+          <button type="submit" class="btn-primary" id="btn-register">Créer mon compte</button>
+        </form>
+
+        <!-- Verify nonce form (shown after registration) -->
+        <form id="form-verify" class="auth-form hidden">
+          <div class="form-group">
+            <label for="verify-nonce">Code de vérification (envoyé par mail)</label>
+            <input type="text" id="verify-nonce" placeholder="123456" maxlength="6" pattern="[0-9]{6}" required />
+          </div>
+          <div id="verify-message" class="auth-message"></div>
+          <button type="submit" class="btn-primary" id="btn-verify">Vérifier mon email</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Game screen -->
+    <div id="game-screen" class="hidden">
+      <!-- Phaser canvas goes here -->
+      <div id="game-canvas-container"></div>
+
+      <!-- HUD overlay -->
+      <div id="hud">
+        <div class="hud-topbar">
+          <div class="hud-title">VOID COLONY</div>
+          <div class="hud-resource">
+            <span class="hud-resource-icon">🌿</span>
+            <span class="hud-resource-value" id="hud-leeks">0</span>
+          </div>
+          <div class="hud-spacer"></div>
+          <div class="hud-player">Commandant <span id="hud-player-email"></span></div>
+          <button class="hud-btn-logout" id="btn-logout">Déconnexion</button>
+        </div>
+
+        <div class="hud-statusbar">
+          <span class="hud-status" id="hud-status">CONNECTÉ</span>
+          <span class="hud-coords" id="hud-coords">x: 0 y: 0</span>
+        </div>
+
+        <!-- Build bar at the bottom of the screen -->
+        <div id="build-bar" class="build-bar"></div>
+
+        <!-- Toast notifications container -->
+        <div id="toast-container"></div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

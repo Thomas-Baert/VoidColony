@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// ─── Prisma Schema containing User, Colony, Platforms, Buildings, and Interiors ──────
 
 generator client {
   provider = "prisma-client-js"
@@ -11,16 +10,71 @@ datasource db {
 }
 
 model User {
-  id                    String    @id @default(uuid()) @db.Uuid
-  email                 String    @unique
+  id                    String            @id @default(uuid()) @db.Uuid
+  email                 String            @unique
   passwordHash          String
-  emailVerified         Boolean   @default(false)
+  emailVerified         Boolean           @default(false)
   emailVerificationNonce String?
   nonceExpiresAt        DateTime?
-  leekBalance           BigInt    @default(0)
-  avatarConfig          Json      @default("{}")
-  createdAt             DateTime  @default(now())
+  leekBalance           BigInt            @default(0)
+  avatarConfig          Json              @default("{}")
+  unlockedCosmetics     Json              @default("[]") @map("unlocked_cosmetics")
+  createdAt             DateTime          @default(now())
   lastLoginAt           DateTime?
+  colonies              Colony[]
 
   @@map("users")
+}
+
+model Colony {
+  id                String     @id @default(uuid()) @db.Uuid
+  userId            String     @db.Uuid @map("user_id")
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novaResetCount    Int        @default(0) @map("nova_reset_count")
+  basePlatformCount Int        @default(1) @map("base_platform_count")
+  resources         Json       @default("{}")
+  techUnlocked      String     @default("") @map("tech_unlocked")
+  lastTick          DateTime   @default(now()) @map("last_tick")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  platforms         Platform[]
+
+  @@map("colonies")
+}
+
+model Platform {
+  id           String     @id @default(uuid()) @db.Uuid
+  colonyId     String     @db.Uuid @map("colony_id")
+  colony       Colony     @relation(fields: [colonyId], references: [id], onDelete: Cascade)
+  platformType String     @map("platform_type") // e.g. rocky, metallic, icy
+  positionX    Int        @map("position_x")
+  positionY    Int        @map("position_y")
+  gridState    Json       @default("{}") @map("grid_state")
+  unlockedAt   DateTime   @default(now()) @map("unlocked_at")
+  buildings    Building[]
+
+  @@map("platforms")
+}
+
+model Building {
+  id              String            @id @default(uuid()) @db.Uuid
+  platformId      String            @db.Uuid @map("platform_id")
+  platform        Platform          @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  typeKey         String            @map("type_key")
+  positionX       Int               @map("position_x")
+  positionY       Int               @map("position_y")
+  functionalState Json              @default("{}") @map("functional_state") // e.g. { level: 1, botCount: 2, lastBotCheck: Date }
+  createdAt       DateTime          @default(now()) @map("created_at")
+  interior        BuildingInterior?
+
+  @@map("buildings")
+}
+
+model BuildingInterior {
+  id         String   @id @default(uuid()) @db.Uuid
+  buildingId String   @unique @db.Uuid @map("building_id")
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  decoBlocks Json     @default("[]") @map("deco_blocks")
+  likesCount Int      @default(0) @map("likes_count")
+
+  @@map("building_interiors")
 }

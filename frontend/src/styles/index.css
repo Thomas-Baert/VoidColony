@@ -1,0 +1,8 @@
+/* ─── Void Colony — CSS Entry Point ─────────────────────── */
+/* Import order matters: base tokens first, then components  */
+@import './base.css';
+@import './loading.css';
+@import './auth.css';
+@import './hud.css';
+@import './game.css';
+@import './toast.css';
