@@ -1,12 +1,10 @@
 import Phaser from 'phaser';
 import { gridToScreen, screenToGrid, TILE_W, TILE_H } from '../game/world/iso.utils';
-import { generateAsteroid, TileType, AsteroidTile } from '../game/world/asteroid';
-import { BuildingDefinitionRegistry, IBuildingDefinition } from '../game/config/buildings';
+import { TileType, AsteroidTile, BuildingDefinitionRegistry, IBuildingDefinition } from '@voidcolony/shared';
 import { PlayerEntity } from '../game/entities/PlayerEntity';
 import { BuildingRenderer } from '../game/entities/BuildingRenderer';
+import { createPlaceholderIconElement } from '../ui/placeholder-icon';
 import { v4 as uuidv4 } from 'uuid';
-
-const ASTEROID_RADIUS = 64;
 
 // Colour palette per tile type
 const TILE_COLORS: Record<number, { top: number; left: number; right: number }> = {
@@ -57,18 +55,34 @@ export class GameScene extends Phaser.Scene {
     this.onPlayerMove = cb;
   }
 
-  create() {
-    this.coordsEl = document.getElementById('hud-coords');
-
-    // Generate asteroid tiles
-    this.tiles = generateAsteroid(ASTEROID_RADIUS);
-
+  /**
+   * Applique l'état de colonie reçu du serveur (terrain persisté + bâtiments).
+   * Appelée une fois, dès la réception de l'événement socket 'colony:state'.
+   */
+  public applyColonyState(tiles: AsteroidTile[], buildings: { id: string; col: number; row: number; typeKey: string }[]): void {
+    this.tiles.push(...tiles);
     this.updateWalkableTiles();
 
-    // Draw all tiles
     for (const tile of this.tiles) {
       this.drawTile(tile);
     }
+
+    for (const building of buildings) {
+      this.buildingRenderer.placeBuilding(building);
+    }
+
+    this.updateWalkableTiles();
+  }
+
+  create() {
+    this.coordsEl = document.getElementById('hud-coords');
+
+    // Le terrain est désormais fourni par le serveur (persisté en BDD) via
+    // applyColonyState(), appelée depuis main.ts à la réception de l'événement
+    // socket 'colony:state'. Tant qu'aucune donnée n'est arrivée, la scène
+    // reste vide — pas de génération locale aléatoire.
+    this.tiles = [];
+    this.updateWalkableTiles();
 
     this.buildingRenderer = new BuildingRenderer(this, this.tiles);
 
@@ -240,9 +254,8 @@ export class GameScene extends Phaser.Scene {
       card.className = 'build-card';
       if (this.selectedBlueprintKey === def.typeKey) card.classList.add('selected');
 
-      const icon = document.createElement('div');
-      icon.className = 'build-card-icon';
-      icon.textContent = def.icon;
+      const icon = createPlaceholderIconElement(def.iconKey, def.name, def.placeholderColor);
+      icon.classList.add('build-card-icon');
       card.appendChild(icon);
 
       const name = document.createElement('div');
@@ -457,19 +470,19 @@ export class GameScene extends Phaser.Scene {
     if (this.keys.A.isDown || this.keys.Q.isDown) dx -= 1;
     if (this.keys.D.isDown) dx += 1;
 
+    this.player.update(dx, dy, this.walkableTiles);
+
+    // Find player's current logical tile to get elevation
+    const { col, row } = screenToGrid(this.player.worldX, this.player.worldY);
+    const tile = this.tiles.find(t => t.col === col && t.row === row);
+    const elevation = tile ? tile.elevation : 0;
+
+    this.player.syncGraphics(elevation);
+    this.player.setDepth((col + row) * 10 + 2);
+
     if (dx !== 0 || dy !== 0) {
-        this.player.update(dx, dy, this.walkableTiles);
-        
-        // Find player's current logical tile to get elevation
-        const { col, row } = screenToGrid(this.player.worldX, this.player.worldY);
-        const tile = this.tiles.find(t => t.col === col && t.row === row);
-        const elevation = tile ? tile.elevation : 0;
-        
-        this.player.syncGraphics(elevation);
-        this.player.setDepth((col + row) * 10 + 2);
-        
         this.onPlayerMove?.(col, row);
-        
+
         // Follow the visual center of the player, not logical base
         this.cameras.main.pan(this.player.worldX, this.player.worldY - (elevation * 8), 100, 'Linear', true);
     }

@@ -32,6 +32,8 @@ export class Colony {
     public readonly userId: string,
     public readonly novaResetCount: number,
     public readonly basePlatformCount: number,
+    /** Rayon de l'astéroïde généré. Ne doit être modifié que par un futur ApplyNovaResetUseCase. */
+    public readonly asteroidRadius: number,
     public resources: Record<string, number>,
     public techUnlocked: string,
     public lastTick: Date,

@@ -33,6 +33,7 @@ export class PostgresColonyRepository implements IColonyRepository {
       record.userId,
       record.novaResetCount,
       record.basePlatformCount,
+      record.asteroidRadius,
       record.resources as Record<string, number>,
       record.techUnlocked,
       record.lastTick,
@@ -79,6 +80,7 @@ export class PostgresColonyRepository implements IColonyRepository {
         data: {
           novaResetCount: colony.novaResetCount,
           basePlatformCount: colony.basePlatformCount,
+          asteroidRadius: colony.asteroidRadius,
           resources: colony.resources,
           techUnlocked: colony.techUnlocked,
           lastTick: colony.lastTick
@@ -132,6 +134,7 @@ export class PostgresColonyRepository implements IColonyRepository {
           userId: colony.userId,
           novaResetCount: colony.novaResetCount,
           basePlatformCount: colony.basePlatformCount,
+          asteroidRadius: colony.asteroidRadius,
           resources: colony.resources,
           techUnlocked: colony.techUnlocked,
           lastTick: colony.lastTick,

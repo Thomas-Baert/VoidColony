@@ -32,6 +32,7 @@ model Colony {
   user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   novaResetCount    Int        @default(0) @map("nova_reset_count")
   basePlatformCount Int        @default(1) @map("base_platform_count")
+  asteroidRadius    Int        @default(8) @map("asteroid_radius") // ne change qu'au Nova Reset
   resources         Json       @default("{}")
   techUnlocked      String     @default("") @map("tech_unlocked")
   lastTick          DateTime   @default(now()) @map("last_tick")

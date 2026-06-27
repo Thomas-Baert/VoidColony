@@ -11,6 +11,9 @@
     "allowImportingTsExtensions": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "paths": {
+      "@voidcolony/shared": ["../packages/shared/src/index.ts"]
+    },
 
     /* Linting - relaxed for game development */
     "strict": true,

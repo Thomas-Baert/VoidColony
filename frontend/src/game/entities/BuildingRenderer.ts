@@ -1,12 +1,22 @@
 import Phaser from 'phaser';
 import { gridToScreen, TILE_W, TILE_H } from '../world/iso.utils';
-import { AsteroidTile, TileType } from '../world/asteroid';
+import { AsteroidTile, TileType } from '@voidcolony/shared';
+import { BuildingDefinitionRegistry } from '@voidcolony/shared';
 
 export interface PlacedBuilding {
   id: string;
   col: number;
   row: number;
   typeKey: string;
+}
+
+/** Assombrit/éclaircit une couleur hexadécimale d'un facteur donné (-1 à 1). */
+function shade(color: number, factor: number): number {
+  const c = Phaser.Display.Color.IntegerToColor(color);
+  const r = Phaser.Math.Clamp(Math.round(c.red * (1 + factor)), 0, 255);
+  const g = Phaser.Math.Clamp(Math.round(c.green * (1 + factor)), 0, 255);
+  const b = Phaser.Math.Clamp(Math.round(c.blue * (1 + factor)), 0, 255);
+  return Phaser.Display.Color.GetColor(r, g, b);
 }
 
 export class BuildingRenderer {
@@ -25,7 +35,7 @@ export class BuildingRenderer {
     this.buildings.set(building.id, building);
 
     this.drawBuilding(building);
-    
+
     const tile = this.tiles.find(t => t.col === building.col && t.row === building.row);
     if (tile && tile.type !== TileType.LANDING_PAD) {
        tile.type = TileType.BUILDING;
@@ -35,34 +45,27 @@ export class BuildingRenderer {
   private drawBuilding(building: PlacedBuilding): void {
     const tile = this.tiles.find(t => t.col === building.col && t.row === building.row);
     const elevation = tile ? tile.elevation : 0;
-    
+
     const { x, y } = gridToScreen(building.col, building.row);
     const h = elevation * 8;
-    
+
     const g = this.scene.add.graphics();
     // Depth sorting for building: slightly above the tile it sits on
     g.setDepth((building.col + building.row) * 10 + 5);
-    
+
     const hw = TILE_W / 2;
     const hh = TILE_H / 2;
-    
-    let topColor = 0xb048ff;
-    let leftColor = 0x6e2db3;
-    let rightColor = 0x471d73;
-    
-    if (building.typeKey === 'drill') {
-        topColor = 0xffb830;
-        leftColor = 0xcc8a1a;
-        rightColor = 0x996510;
-    } else if (building.typeKey === 'leek_farm') {
-        topColor = 0x3dffa0;
-        leftColor = 0x22a664;
-        rightColor = 0x125934;
-    }
-    
+
+    // OCP : la couleur vient de la définition du bâtiment (registre), jamais
+    // d'un if/else codé en dur — un nouveau bâtiment n'a rien à changer ici.
+    const baseColor = BuildingDefinitionRegistry.get(building.typeKey).placeholderColor;
+    const topColor = baseColor;
+    const leftColor = shade(baseColor, -0.35);
+    const rightColor = shade(baseColor, -0.55);
+
     const bh = 15;
     const baseY = y - h - 5;
-    
+
     g.fillStyle(topColor, 1);
     g.beginPath();
     g.moveTo(x, baseY - bh);
@@ -91,7 +94,7 @@ export class BuildingRenderer {
     g.lineTo(x, baseY + TILE_H - 10);
     g.closePath();
     g.fillPath();
-    
+
     g.setAlpha(0);
     g.y = -20;
     this.scene.tweens.add({

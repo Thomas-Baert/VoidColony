@@ -88,6 +88,17 @@ function startPhaser() {
     $hudLeeks.textContent = balance;
   });
 
+  socket.on('colony:state', (state: { asteroidRadius: number; tiles: any[]; buildings: any[] }) => {
+    scene.applyColonyState(state.tiles, state.buildings);
+  });
+
+  socket.on('connect', () => {
+    socket.emit('colony:request-state');
+  });
+  if (socket.connected) {
+    socket.emit('colony:request-state');
+  }
+
   scene.events.on('building:place', (data: { tile: any; typeKey: string }) => {
     socket.emit('building:place', {
       col: data.tile.col,

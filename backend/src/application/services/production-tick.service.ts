@@ -1,8 +1,4 @@
-import { ICostCalculator, IProductionCalculator } from '../../../../frontend/src/game/config/buildings';
-
-// Re-using the same config from frontend for now via relative import.
-// In a real production app, this would be in a shared workspace package.
-import { BuildingDefinitionRegistry } from '../../../../frontend/src/game/config/buildings';
+import { BuildingDefinitionRegistry } from '@voidcolony/shared';
 import { IColonyRepository } from '../../domain/interfaces/repositories/colony-repository.interface';
 import { PrismaClient } from '@prisma/client';
 import { Server } from 'socket.io';

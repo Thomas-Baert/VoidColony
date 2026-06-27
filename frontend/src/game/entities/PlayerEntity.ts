@@ -49,12 +49,19 @@ export class PlayerEntity implements IPlayerEntity {
   // ── Config ──────────────────────────────────────────────────────────────
   /** Pixels moved per frame (at 60 fps ≈ 150 px/s, ~0.4 s per tile) */
   private static readonly SPEED = 2.5;
+  /** Vitesse d'avancement de la phase de bob de marche (radians/frame) */
+  private static readonly WALK_CYCLE_SPEED = 0.35;
+  /** Amplitude verticale du bob de marche, en pixels */
+  private static readonly WALK_BOB_AMPLITUDE = 2;
 
   // ── State ────────────────────────────────────────────────────────────────
   private _worldX: number;
   private _worldY: number;
   private _direction: Direction = Direction.IDLE;
-  
+  private _isMoving: boolean = false;
+  /** Phase du cycle de marche, utilisée pour le bob vertical pendant le déplacement. */
+  private walkPhase: number = 0;
+
   public visualElevation: number = 0;
   private elevationTween: Phaser.Tweens.Tween | null = null;
   private elevationTarget: number = 0;
@@ -80,6 +87,7 @@ export class PlayerEntity implements IPlayerEntity {
   update(dx: number, dy: number, walkableSet: Set<string>): void {
     if (dx === 0 && dy === 0) {
       this._direction = Direction.IDLE;
+      this._isMoving = false;
       return;
     }
 
@@ -88,6 +96,10 @@ export class PlayerEntity implements IPlayerEntity {
     const vy  = (dy / len) * PlayerEntity.SPEED;
 
     this._direction = PlayerEntity.resolveDirection(dx, dy);
+    this._isMoving = true;
+    this.walkPhase += PlayerEntity.WALK_CYCLE_SPEED;
+
+    this.avatar.setOrientation(this._direction === Direction.NW || this._direction === Direction.SW);
 
     if (this.tryMove(this._worldX + vx, this._worldY + vy, walkableSet)) return;
     if (this.tryMove(this._worldX + vx, this._worldY,      walkableSet)) return;
@@ -116,7 +128,8 @@ export class PlayerEntity implements IPlayerEntity {
     }
 
     // Apply the position to the avatar using the smoothly interpolated visual elevation
-    this.avatar.setPosition(this._worldX, this._worldY, this.visualElevation);
+    const bobOffset = this._isMoving ? Math.abs(Math.sin(this.walkPhase)) * PlayerEntity.WALK_BOB_AMPLITUDE : 0;
+    this.avatar.setPosition(this._worldX, this._worldY, this.visualElevation, bobOffset);
   }
 
   setDepth(depth: number): void {

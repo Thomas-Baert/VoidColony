@@ -7,11 +7,13 @@ import Phaser from 'phaser';
  */
 export class AvatarRenderer {
     public readonly container: Phaser.GameObjects.Container;
-    
+
     // Layers
     private readonly shadowGraphic: Phaser.GameObjects.Graphics;
     private readonly bodyGraphic: Phaser.GameObjects.Graphics;
     private readonly headGraphic: Phaser.GameObjects.Graphics;
+
+    private isFacingLeft: boolean = false;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         // We still use Graphics placeholders, but separated into distinct logical layers
@@ -20,7 +22,7 @@ export class AvatarRenderer {
 
         this.bodyGraphic = scene.add.graphics();
         this.headGraphic = scene.add.graphics();
-        
+
         this.drawBodyPlaceholder();
         this.drawHeadPlaceholder();
 
@@ -29,18 +31,29 @@ export class AvatarRenderer {
     }
 
     /**
+     * Oriente visuellement l'avatar selon la direction de déplacement.
+     * Les directions "ouest" (NW/SW) inversent l'avatar horizontalement.
+     */
+    public setOrientation(facingLeft: boolean): void {
+        if (facingLeft === this.isFacingLeft) return;
+        this.isFacingLeft = facingLeft;
+        this.container.setScale(facingLeft ? -1 : 1, 1);
+    }
+
+    /**
      * Sets the physical ground position (2D flat logic).
      * @param x Flat world X
      * @param y Flat world Y
      * @param visualElevation The current elevation height (in tile elevation units)
+     * @param bobOffset Décalage vertical du cycle de marche (0 à l'arrêt)
      */
-    public setPosition(x: number, y: number, visualElevation: number): void {
-        const visualY = y - (visualElevation * 8);
-        
+    public setPosition(x: number, y: number, visualElevation: number, bobOffset: number = 0): void {
+        const visualY = y - (visualElevation * 8) - bobOffset;
+
         // Shadow stays on the ground plane (y) but we offset it slightly so it looks right
-        this.shadowGraphic.setPosition(x, visualY + 10);
-        
-        // The container (body + head) moves up based on elevation
+        this.shadowGraphic.setPosition(x, y - (visualElevation * 8) + 10);
+
+        // The container (body + head) moves up based on elevation and walk bob
         this.container.setPosition(x, visualY);
     }
 
