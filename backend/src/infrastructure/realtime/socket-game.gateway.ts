@@ -49,13 +49,15 @@ export class SocketGameGateway {
     socket.on('building:place', (payload: PlaceBuildingPayload) =>
       this.handlePlaceBuilding(socket, userId, payload)
     );
-    socket.on('colony:request-state', () => this.handleRequestState(socket, userId));
+    socket.on('colony:request-state', (payload?: { ownerId?: string }) =>
+      this.handleRequestState(socket, payload?.ownerId || userId)
+    );
   }
 
-  private async handleRequestState(socket: Socket, userId: string): Promise<void> {
+  private async handleRequestState(socket: Socket, ownerId: string): Promise<void> {
     try {
-      const state = await this.getColonyStateUseCase.execute(userId);
-      socket.emit('colony:state', state);
+      const state = await this.getColonyStateUseCase.execute(ownerId);
+      socket.emit('colony:state', { ...state, ownerId });
     } catch (error) {
       const message = error instanceof DomainError ? error.message : 'Impossible de charger la colonie.';
       socket.emit('error', { message });

@@ -7,13 +7,26 @@ import { showToast }     from './ui/toast';
 import { apiLogin, apiRegister, apiVerifyEmail } from './network/api';
 import { connectSocket, disconnectSocket }       from './network/socket';
 import { GameScene } from './scenes/GameScene';
+import { LobbyScene } from './scenes/LobbyScene';
+import { ChatPanel } from './ui/chat-panel';
+import { TravelPanel } from './ui/travel-panel';
+import { MarketPanel, MarketOrderView } from './ui/market-panel';
 
 // ─── State ───────────────────────────────────────────────
 let token: string | null        = localStorage.getItem('vc_token');
 let userEmail: string | null    = localStorage.getItem('vc_email');
+let userId: string | null       = localStorage.getItem('vc_userid');
 let pendingEmail: string | null = null;  // set after register, before verify
 let phaserGame: Phaser.Game | null = null;
 let gameScene: GameScene | null    = null;
+let lobbyScene: LobbyScene | null  = null;
+
+/** Room de présence/chat actuelle. null = colonie personnelle (pas de présence pour l'instant). */
+let currentRoom: 'lobby' | string | null = null;
+
+const chatPanel = new ChatPanel();
+const travelPanel = new TravelPanel();
+const marketPanel = new MarketPanel();
 
 // ─── DOM references ───────────────────────────────────────
 const $loading   = document.getElementById('loading-screen')!;
@@ -31,6 +44,7 @@ const $verifyMsg  = document.getElementById('verify-message')!;
 const $hudLeeks  = document.getElementById('hud-leeks')!;
 const $hudPlayer = document.getElementById('hud-player-email')!;
 const $btnLogout = document.getElementById('btn-logout')!;
+const $btnToggleLobby = document.getElementById('btn-toggle-lobby')!;
 
 // ─── UI helpers ───────────────────────────────────────────
 function setMessage(el: HTMLElement, text: string, type: 'success' | 'error') {
@@ -52,17 +66,88 @@ function clearMessage(el: HTMLElement) {
   $formVerify.classList.add('hidden');
 };
 
+// ─── Présence / chat scoping par room ──────────────────────
+function joinRoom(room: 'lobby' | string) {
+  const socket = connectSocket(token!);
+  currentRoom = room;
+  chatPanel.clear();
+  chatPanel.show();
+  socket.emit('zone:join', { room });
+}
+
+function sendChatMessage(message: string) {
+  if (!currentRoom) return;
+  const socket = connectSocket(token!);
+  socket.emit('chat:send', { room: currentRoom, message });
+}
+
+// ─── Voyage (visite d'îles) ─────────────────────────────────
+function openTravelPanel() {
+  const socket = connectSocket(token!);
+  socket.emit('presence:list-online');
+  travelPanel.show();
+}
+
+function visitColony(targetUserId: string) {
+  if (!phaserGame || !gameScene) return;
+  joinRoom(`colony:${targetUserId}`);
+  phaserGame.scene.stop('LobbyScene');
+  phaserGame.scene.start('GameScene', { ownerId: targetUserId, isOwner: false });
+  const socket = connectSocket(token!);
+  socket.emit('colony:request-state', { ownerId: targetUserId });
+}
+
+function returnToOwnColony() {
+  if (!phaserGame || !gameScene) return;
+  chatPanel.hide();
+  currentRoom = null;
+  phaserGame.scene.stop('LobbyScene');
+  phaserGame.scene.start('GameScene', { ownerId: userId, isOwner: true });
+  const socket = connectSocket(token!);
+  socket.emit('colony:request-state', { ownerId: userId });
+}
+
+function goToLobby() {
+  if (!phaserGame) return;
+  phaserGame.scene.stop('GameScene');
+  phaserGame.scene.start('LobbyScene');
+  joinRoom('lobby');
+}
+
+// ─── Marché galactique (HDV) ────────────────────────────────
+function openMarketPanel() {
+  marketPanel.setCurrentUserId(userId!);
+  const socket = connectSocket(token!);
+  socket.emit('market:list-orders');
+  marketPanel.show();
+}
+
 // ─── Phaser initialisation ───────────────────────────────
 function startPhaser() {
   const container = document.getElementById('game-canvas-container')!;
 
   const scene = new GameScene();
+  const lobby = new LobbyScene();
   gameScene = scene;
+  lobbyScene = lobby;
 
-  // Wire move → socket emit
+  // Wire move → socket emit (déplacement sur la grille, placement de bâtiment)
   scene.setMoveCallback((col, row) => {
     const socket = connectSocket(token!);
     socket.emit('player:move', { col, row });
+  });
+
+  // Wire présence multijoueur (visite uniquement pour GameScene, toujours pour le lobby)
+  const zoneMoveEmit = (worldX: number, worldY: number, facingLeft: boolean) => {
+    const socket = connectSocket(token!);
+    socket.emit('zone:move', { x: worldX, y: worldY, direction: facingLeft ? 'W' : 'E' });
+  };
+  scene.setZoneMoveCallback(zoneMoveEmit);
+  lobby.setZoneMoveCallback(zoneMoveEmit);
+
+  lobby.events.on('npc:interact', (npcId: 'travel' | 'market') => {
+    if (npcId === 'travel') openTravelPanel();
+    else openMarketPanel();
   });
 
   phaserGame = new Phaser.Game({
@@ -70,7 +155,7 @@ function startPhaser() {
     width: window.innerWidth,
     height: window.innerHeight,
     backgroundColor: '#07080c',
-    scene: [scene],
+    scene: [scene, lobby],
     parent: container,
     scale: {
       mode: Phaser.Scale.RESIZE,
@@ -82,21 +167,25 @@ function startPhaser() {
     disableContextMenu: true,
   });
 
+  // Démarre explicitement sur sa propre colonie (avec les bonnes données d'init)
+  phaserGame.scene.stop('LobbyScene');
+  phaserGame.scene.start('GameScene', { ownerId: userId, isOwner: true });
+
   // Socket connection
   const socket = connectSocket(token!);
   socket.on('leek:update', (balance: string) => {
     $hudLeeks.textContent = balance;
   });
 
-  socket.on('colony:state', (state: { asteroidRadius: number; tiles: any[]; buildings: any[] }) => {
+  socket.on('colony:state', (state: { ownerId: string; asteroidRadius: number; tiles: any[]; buildings: any[] }) => {
     scene.applyColonyState(state.tiles, state.buildings);
   });
 
   socket.on('connect', () => {
-    socket.emit('colony:request-state');
+    socket.emit('colony:request-state', { ownerId: userId });
   });
   if (socket.connected) {
-    socket.emit('colony:request-state');
+    socket.emit('colony:request-state', { ownerId: userId });
   }
 
   scene.events.on('building:place', (data: { tile: any; typeKey: string }) => {
@@ -106,6 +195,64 @@ function startPhaser() {
       typeKey: data.typeKey
     });
   });
+
+  // ── Présence multijoueur (lobby + visites) ──────────────────────────────
+  socket.on('zone:player-joined', (p: { userId: string; email: string }) => {
+    activeMultiplayerScene()?.addRemotePlayer(p.userId, p.email, 0, 0);
+  });
+  socket.on('zone:player-moved', (p: { userId: string; x: number; y: number; direction: string }) => {
+    activeMultiplayerScene()?.updateRemotePlayerPosition(p.userId, p.x, p.y, p.direction === 'W');
+  });
+  socket.on('zone:player-left', (p: { userId: string }) => {
+    activeMultiplayerScene()?.removeRemotePlayer(p.userId);
+  });
+
+  // ── Chat ─────────────────────────────────────────────────────────────────
+  chatPanel.onSend((message) => sendChatMessage(message));
+  socket.on('chat:message', (m: { userId: string; email: string; message: string; sentAt: string }) => {
+    chatPanel.addMessage(m);
+  });
+
+  // ── Voyage ───────────────────────────────────────────────────────────────
+  travelPanel.onVisit((targetUserId) => visitColony(targetUserId));
+  socket.on('presence:online-list', (players: { userId: string; email: string }[]) => {
+    travelPanel.setOnlinePlayers(players);
+  });
+
+  // ── Marché (HDV) ─────────────────────────────────────────────────────────
+  function refreshMarketOrders() {
+    socket.emit('market:list-orders');
+  }
+  marketPanel.onCreateOrder((resourceType, quantity, priceLeeks) => {
+    socket.emit('market:create-order', { resourceType, quantity, priceLeeks });
+  });
+  marketPanel.onCancelOrder((orderId) => socket.emit('market:cancel-order', { orderId }));
+  marketPanel.onFulfillOrder((orderId) => socket.emit('market:fulfill-order', { orderId }));
+  socket.on('market:orders', (orders: MarketOrderView[]) => marketPanel.setOrders(orders));
+  socket.on('market:should-refresh', () => refreshMarketOrders());
+  socket.on('market:order-created', () => showToast('Offre publiée sur le marché', 'info'));
+  socket.on('market:order-fulfilled', () => showToast('Achat effectué', 'info'));
+  socket.on('market:order-cancelled', () => showToast('Offre annulée', 'info'));
+
+  socket.on('error', (e: { message: string }) => showToast(e.message, 'error'));
+
+  // ── Navigation lobby <-> colonie ─────────────────────────────────────────
+  $btnToggleLobby.addEventListener('click', () => {
+    if (phaserGame?.scene.isActive('LobbyScene')) {
+      returnToOwnColony();
+      $btnToggleLobby.textContent = 'Lobby';
+    } else {
+      goToLobby();
+      $btnToggleLobby.textContent = 'Ma colonie';
+    }
+  });
+}
+
+/** Renvoie la scène actuellement responsable de l'affichage des joueurs distants. */
+function activeMultiplayerScene(): GameScene | LobbyScene | null {
+  if (phaserGame?.scene.isActive('LobbyScene')) return lobbyScene;
+  if (phaserGame?.scene.isActive('GameScene') && gameScene && !gameScene.isOwnColony()) return gameScene;
+  return null;
 }
 
 // ─── Show / Hide screens ──────────────────────────────────
@@ -126,11 +273,14 @@ function showAuth() {
 $btnLogout.addEventListener('click', () => {
   localStorage.removeItem('vc_token');
   localStorage.removeItem('vc_email');
-  token = null; userEmail = null;
+  localStorage.removeItem('vc_userid');
+  token = null; userEmail = null; userId = null;
   disconnectSocket();
   phaserGame?.destroy(true);
   phaserGame = null;
   gameScene  = null;
+  lobbyScene = null;
+  chatPanel.hide();
   showAuth();
   showToast('Déconnecté', 'info');
 });
@@ -151,8 +301,10 @@ $formLogin.addEventListener('submit', async (e) => {
     const res = await apiLogin(email, password);
     token     = res.token;
     userEmail = res.user.email;
+    userId    = res.user.id;
     localStorage.setItem('vc_token', token);
     localStorage.setItem('vc_email', userEmail);
+    localStorage.setItem('vc_userid', userId);
     $hudLeeks.textContent = res.user.leekBalance;
     showGame();
   } catch (err: any) {

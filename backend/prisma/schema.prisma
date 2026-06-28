@@ -79,3 +79,17 @@ model BuildingInterior {
 
   @@map("building_interiors")
 }
+
+model MarketOrder {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid @map("user_id")
+  resourceType String   @map("resource_type")
+  quantity     BigInt
+  priceLeeks   BigInt   @map("price_leeks")
+  orderType    String   @map("order_type") // 'sell' (seul type supporté pour l'instant)
+  status       String   @default("open") // 'open' | 'fulfilled' | 'cancelled'
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("market_orders")
+  @@index([resourceType, status])
+}

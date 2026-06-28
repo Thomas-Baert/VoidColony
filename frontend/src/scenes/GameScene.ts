@@ -3,6 +3,7 @@ import { gridToScreen, screenToGrid, TILE_W, TILE_H } from '../game/world/iso.ut
 import { TileType, AsteroidTile, BuildingDefinitionRegistry, IBuildingDefinition } from '@voidcolony/shared';
 import { PlayerEntity } from '../game/entities/PlayerEntity';
 import { BuildingRenderer } from '../game/entities/BuildingRenderer';
+import { RemotePlayerEntity } from '../game/entities/RemotePlayerEntity';
 import { createPlaceholderIconElement } from '../ui/placeholder-icon';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -46,13 +47,56 @@ export class GameScene extends Phaser.Scene {
   // HUD references
   private coordsEl: HTMLElement | null = null;
   private onPlayerMove?: (col: number, row: number) => void;
+  private onZoneMove?: (worldX: number, worldY: number, facingLeft: boolean) => void;
+
+  /** Identifiant du propriétaire de la colonie affichée (peut différer du joueur courant en visite). */
+  private colonyOwnerId: string | null = null;
+  private isOwner: boolean = true;
+  private readonly remotePlayers: Map<string, RemotePlayerEntity> = new Map();
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
+  /** Phaser lifecycle — reçoit les données passées par scene.start('GameScene', data). */
+  init(data: { ownerId?: string; isOwner?: boolean } = {}): void {
+    this.colonyOwnerId = data.ownerId ?? null;
+    this.isOwner = data.isOwner !== false;
+    this.tiles = [];
+    this.remotePlayers.forEach(rp => rp.destroy());
+    this.remotePlayers.clear();
+  }
+
   setMoveCallback(cb: (col: number, row: number) => void) {
     this.onPlayerMove = cb;
+  }
+
+  setZoneMoveCallback(cb: (worldX: number, worldY: number, facingLeft: boolean) => void) {
+    this.onZoneMove = cb;
+  }
+
+  public getColonyOwnerId(): string | null {
+    return this.colonyOwnerId;
+  }
+
+  public isOwnColony(): boolean {
+    return this.isOwner;
+  }
+
+  // ── Joueurs distants (présence multijoueur) ────────────────────────────
+
+  public addRemotePlayer(userId: string, email: string, worldX: number, worldY: number): void {
+    if (this.remotePlayers.has(userId)) return;
+    this.remotePlayers.set(userId, new RemotePlayerEntity(this, userId, email, worldX, worldY));
+  }
+
+  public updateRemotePlayerPosition(userId: string, worldX: number, worldY: number, facingLeft: boolean): void {
+    this.remotePlayers.get(userId)?.updateTargetPosition(worldX, worldY, facingLeft);
+  }
+
+  public removeRemotePlayer(userId: string): void {
+    this.remotePlayers.get(userId)?.destroy();
+    this.remotePlayers.delete(userId);
   }
 
   /**
@@ -177,8 +221,19 @@ export class GameScene extends Phaser.Scene {
         this.updateWalkableTiles();
     });
 
-    // Initialize the bottom build bar
-    this.initBuildBar();
+    // Initialize the bottom build bar (uniquement sur sa propre colonie)
+    if (this.isOwner) {
+      this.initBuildBar();
+    } else {
+      this.showVisitBanner();
+    }
+  }
+
+  private showVisitBanner(): void {
+    const banner = document.createElement('div');
+    banner.className = 'visit-banner';
+    banner.textContent = 'Vous visitez cette colonie — lecture seule';
+    document.getElementById('hud')?.appendChild(banner);
   }
   
   private updateWalkableTiles() {
@@ -414,6 +469,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private placeBlueprint(tile: AsteroidTile) {
+      if (!this.isOwner) return; // lecture seule en visite
       if (!this.selectedBlueprintKey) return;
       
       const canBuild = tile.type === TileType.ROCK || tile.type === TileType.RESOURCE;
@@ -482,9 +538,14 @@ export class GameScene extends Phaser.Scene {
 
     if (dx !== 0 || dy !== 0) {
         this.onPlayerMove?.(col, row);
+        if (!this.isOwner) {
+          this.onZoneMove?.(this.player.worldX, this.player.worldY - (elevation * 8), this.player.direction === 'NW' || this.player.direction === 'SW');
+        }
 
         // Follow the visual center of the player, not logical base
         this.cameras.main.pan(this.player.worldX, this.player.worldY - (elevation * 8), 100, 'Linear', true);
     }
+
+    this.remotePlayers.forEach(rp => rp.tick());
   }
 }

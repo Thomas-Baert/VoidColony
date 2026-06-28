@@ -1,3 +1,5 @@
+import { DomainError } from '../../shared/errors/domain.error';
+
 export class Building {
   constructor(
     public readonly id: string,
@@ -40,4 +42,19 @@ export class Colony {
     public readonly createdAt: Date,
     public readonly platforms: Platform[] = []
   ) {}
+
+  /** Retire une quantité de ressource ; lève une DomainError si le stock est insuffisant. */
+  public removeResource(resourceType: string, amount: number): void {
+    if (amount <= 0) return;
+    const current = this.resources[resourceType] ?? 0;
+    if (current < amount) {
+      throw new DomainError(`Stock de '${resourceType}' insuffisant.`);
+    }
+    this.resources[resourceType] = current - amount;
+  }
+
+  public addResource(resourceType: string, amount: number): void {
+    if (amount <= 0) return;
+    this.resources[resourceType] = (this.resources[resourceType] ?? 0) + amount;
+  }
 }

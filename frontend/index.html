@@ -81,11 +81,12 @@
         <div class="hud-topbar">
           <div class="hud-title">VOID COLONY</div>
           <div class="hud-resource">
-            <span class="hud-resource-icon">🌿</span>
+            <span class="hud-resource-icon placeholder-icon" style="background:#3dffa0" data-icon-key="icon_resource_leeks">PO</span>
             <span class="hud-resource-value" id="hud-leeks">0</span>
           </div>
           <div class="hud-spacer"></div>
           <div class="hud-player">Commandant <span id="hud-player-email"></span></div>
+          <button class="hud-btn-secondary" id="btn-toggle-lobby">Lobby</button>
           <button class="hud-btn-logout" id="btn-logout">Déconnexion</button>
         </div>
 
@@ -99,6 +100,41 @@
 
         <!-- Toast notifications container -->
         <div id="toast-container"></div>
+
+        <!-- Prompt d'interaction PNJ (lobby) -->
+        <div id="lobby-interact-prompt" class="lobby-interact-prompt hidden"></div>
+
+        <!-- Panneau de chat, scoping par room (lobby / visite de colonie) -->
+        <div id="chat-panel" class="chat-panel hidden">
+          <div id="chat-messages" class="chat-messages"></div>
+          <form id="chat-form" class="chat-form">
+            <input id="chat-input" type="text" maxlength="280" placeholder="Écrire un message…" autocomplete="off" />
+          </form>
+        </div>
+
+        <!-- Panneau de voyage (visite d'îles) -->
+        <div id="travel-panel" class="overlay-panel hidden">
+          <div class="overlay-panel-header">
+            <h2>Voyage</h2>
+            <button class="overlay-panel-close" id="btn-close-travel">✕</button>
+          </div>
+          <div id="travel-list" class="travel-list"></div>
+        </div>
+
+        <!-- Panneau du marché galactique (HDV) -->
+        <div id="market-panel" class="overlay-panel hidden">
+          <div class="overlay-panel-header">
+            <h2>Marché Galactique</h2>
+            <button class="overlay-panel-close" id="btn-close-market">✕</button>
+          </div>
+          <form id="market-create-form" class="market-create-form">
+            <input id="market-resource" type="text" placeholder="Type de ressource (ex: rock_ore)" required />
+            <input id="market-quantity" type="number" min="1" placeholder="Quantité" required />
+            <input id="market-price" type="number" min="1" placeholder="Prix (leeks)" required />
+            <button type="submit" class="btn-primary">Vendre</button>
+          </form>
+          <div id="market-orders" class="market-orders"></div>
+        </div>
       </div>
     </div>
 

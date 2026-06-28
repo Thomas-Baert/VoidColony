@@ -257,3 +257,20 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
   margin: 0 auto;
 }
+
+/* Bandeau affiché en mode visite (lecture seule) */
+.visit-banner {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 184, 48, 0.15);
+  border: 1px solid #ffb830;
+  color: #ffb830;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: monospace;
+  z-index: 50;
+  pointer-events: none;
+}

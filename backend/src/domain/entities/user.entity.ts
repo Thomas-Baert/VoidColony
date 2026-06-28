@@ -23,6 +23,12 @@ export class User {
     this.leekBalance -= amount;
   }
 
+  /** Crédite des leeks (vente au marché, récompense, etc.) */
+  public creditLeeks(amount: bigint): void {
+    if (amount <= 0n) return;
+    this.leekBalance += amount;
+  }
+
   public verifyEmail(nonce: string, now: Date): boolean {
     if (this.emailVerified) return true;
     if (!this.emailVerificationNonce || !this.nonceExpiresAt) return false;

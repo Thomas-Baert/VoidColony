@@ -33,7 +33,7 @@ C'est un monorepo géré par les **workspaces npm** (`frontend`, `backend`, `pac
 ## Installation
 
 ```bash
-git clone https://github.com/Thomas-Baert/VoidColony.git
+git clone <url-du-dépôt>
 cd VoidColony-main
 npm install
 ```
